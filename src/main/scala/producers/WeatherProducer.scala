@@ -3,6 +3,7 @@ import java.util.Properties
 import scala.io.Source
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import java.time.Instant
 
 object WeatherProducer {
 
@@ -40,23 +41,30 @@ object WeatherProducer {
 
     val producer = new KafkaProducer[String, String](props)
 
-    println("🌍 Fetching LIVE Weather from OpenWeather API...")
+    println(" Fetching LIVE Weather from OpenWeather API...")
 
     while (true) {
       for ((country, lat, lon) <- locations) {
 
         val (temp, humidity) = getWeather(lat, lon)
+        val eventTime = Instant.now().toString
 
         val json =
           s"""
              {
                "country": "$country",
                "temperature": $temp,
-               "humidity": $humidity
+               "humidity": $humidity,
+               "event_time": "$eventTime"
              }
            """.stripMargin
 
-        val record = new ProducerRecord[String, String]("weather_topic", country, json)
+        val record = new ProducerRecord[String, String](
+          "weather_topic",
+          country,
+          json
+        )
+
         producer.send(record)
 
         println(s"✔ Sent -> $json")

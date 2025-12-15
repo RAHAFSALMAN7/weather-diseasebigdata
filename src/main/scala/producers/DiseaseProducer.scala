@@ -7,17 +7,12 @@ import scala.util.Random
 
 object DiseaseProducer {
 
-  // ============================
-  // 1) دوال تنظيف آمنة  (Scala 2)
-  // ============================
-
   def cleanCell(cell: String): String = {
     if (cell == null) return "0"
 
     val trimmed = cell.trim
 
     if (trimmed.contains(";")) {
-      // نأخذ أول قيمة رقمية فقط
       val parts = trimmed.split(";")
       val firstNumber = parts.find(p => p.matches("[-]?[0-9.]+"))
       firstNumber.getOrElse("0")
@@ -36,10 +31,6 @@ object DiseaseProducer {
     catch { case _: Throwable => 0 }
   }
 
-  // ============================================
-  // 2) تحميل ملفات CSV
-  // ============================================
-
   val allergyFile = "data/raw/diseases/allergy/AirQuality.csv"
   val heatStrokeFile = "data/raw/diseases/heat_stroke/Heat_Stroke.csv"
   val influenzaFile = "data/raw/diseases/influenza/influenza_weekly.csv"
@@ -49,10 +40,6 @@ object DiseaseProducer {
   val influenzaData = Source.fromFile(influenzaFile).getLines().drop(1).toList
 
   val rnd = new Random()
-
-  // ============================================
-  // 3) إرسال حدث مرض عشوائي
-  // ============================================
 
   def sendDiseaseEvent(producer: KafkaProducer[String, String]): Unit = {
 
@@ -66,7 +53,6 @@ object DiseaseProducer {
 
     val row = fileRows(rnd.nextInt(fileRows.length))
 
-    // نقسم السطر حسب فاصلة أو فاصلة منقوطة
     val columns = row.split("[,;]").map(cleanCell)
 
     val feature1 = safeDouble(columns.headOption.getOrElse("0"))
@@ -90,10 +76,6 @@ object DiseaseProducer {
     println("✔ Sent disease event: " + json)
   }
 
-  // ============================================
-  // 4) Main – التشغيل
-  // ============================================
-
   def main(args: Array[String]): Unit = {
 
     println("🚑 DiseaseProducer started...")
@@ -111,7 +93,7 @@ object DiseaseProducer {
         override def run(): Unit = sendDiseaseEvent(producer)
       },
       0,
-      2000 // كل ثانيتين
+      2000
     )
   }
 }
