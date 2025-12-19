@@ -9,8 +9,7 @@ import org.apache.spark.storage.StorageLevel
 object WeatherDiseaseJoinStream {
 
   // =========================
-  // Kafka & Mongo
-  // =========================
+   // =========================
   val KAFKA_BOOTSTRAP = "localhost:9092"
   val WEATHER_TOPIC   = "weather_topic"
   val DISEASE_TOPIC   = "disease_topic"
@@ -20,8 +19,7 @@ object WeatherDiseaseJoinStream {
   val MONGO_COLL = "seasonal_analysis"
 
   // =========================
-  // Schemas
-  // =========================
+   // =========================
   val weatherSchema: StructType = new StructType()
     .add("country", StringType)
     .add("temperature", DoubleType)
@@ -39,8 +37,7 @@ object WeatherDiseaseJoinStream {
     .add("event_time", StringType)
 
   // =========================
-  // Helpers
-  // =========================
+   // =========================
   def normalizeCountry(c: Column): Column =
     lower(trim(c))
 
@@ -58,8 +55,7 @@ object WeatherDiseaseJoinStream {
       .otherwise("Autumn")
 
   // =========================
-  // MAIN
-  // =========================
+   // =========================
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession.builder()
@@ -71,8 +67,7 @@ object WeatherDiseaseJoinStream {
     spark.sparkContext.setLogLevel("WARN")
 
     // =====================================================
-    // 1) STATIC Disease Snapshot (مرة واحدة)
-    // =====================================================
+     // =====================================================
     val diseaseStatic = spark.read
       .format("kafka")
       .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
@@ -98,8 +93,7 @@ object WeatherDiseaseJoinStream {
     diseaseStatic.persist(StorageLevel.MEMORY_AND_DISK)
 
     // =====================================================
-    // 2) Build Bloom Filter (بدون Encoders)
-    // =====================================================
+     // =====================================================
     val diseaseCountries: Array[String] =
       diseaseStatic
         .select("country")
@@ -125,8 +119,7 @@ object WeatherDiseaseJoinStream {
     println(s":white_check_mark: Bloom Filter initialized with ${diseaseCountries.length} countries")
 
     // =====================================================
-    // 3) Disease Aggregation (STATIC)
-    // =====================================================
+     // =====================================================
     val diseaseSeasonal =
       diseaseStatic
         .groupBy("country", "season", "disease")
@@ -134,8 +127,7 @@ object WeatherDiseaseJoinStream {
         .persist(StorageLevel.MEMORY_AND_DISK)
 
     // =====================================================
-    // 4) WEATHER STREAM
-    // =====================================================
+     // =====================================================
     val weatherStream = spark.readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
@@ -162,14 +154,12 @@ object WeatherDiseaseJoinStream {
       .drop("month")
 
     // =====================================================
-    // 5) Apply Bloom Filter (SAFE via UDF)
-    // =====================================================
+     // =====================================================
     val weatherFiltered =
       weatherStream.filter(bloomContains(col("country")))
 
     // =====================================================
-    // 6) foreachBatch: Aggregate + Join + Mongo
-    // =====================================================
+     // =====================================================
     val checkpointPath =
       "C:/weather-diseasebigdata/data/checkpoints/Streaming/diseaseWeatherJoinStream"
 
