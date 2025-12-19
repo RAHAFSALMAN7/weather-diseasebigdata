@@ -2,7 +2,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object weatherStream {
+object WeatherStream {
 
   val KAFKA_BOOTSTRAP = "localhost:9092"
   val TOPIC = "weather_topic"
@@ -12,7 +12,15 @@ object weatherStream {
   val weatherSchema: StructType = new StructType()
     .add("country", StringType, nullable = true)
     .add("temperature", DoubleType, nullable = true)
-    .add("humidity", DoubleType, nullable = true)
+    .add("feels_like", DoubleType, nullable = true)
+    .add("humidity", IntegerType, nullable = true)
+    .add("pressure", IntegerType, nullable = true)
+    .add("wind_speed", DoubleType, nullable = true)
+    .add("wind_deg", IntegerType, nullable = true)
+    .add("cloudiness", IntegerType, nullable = true)
+    .add("rain_1h", DoubleType, nullable = true)
+    .add("snow_1h", DoubleType, nullable = true)
+    .add("event_time", StringType, nullable = true)
 
   def main(args: Array[String]): Unit = {
 
@@ -46,12 +54,32 @@ object weatherStream {
         col("key"),
         col("json.country").as("country"),
         col("json.temperature").as("temperature"),
-        col("json.humidity").as("humidity")
+        col("json.feels_like").as("feels_like"),
+        col("json.humidity").as("humidity"),
+        col("json.pressure").as("pressure"),
+        col("json.wind_speed").as("wind_speed"),
+        col("json.wind_deg").as("wind_deg"),
+        col("json.cloudiness").as("cloudiness"),
+        col("json.rain_1h").as("rain_1h"),
+        col("json.snow_1h").as("snow_1h"),
+        col("json.event_time").as("event_time")
       )
-      .withColumn("event_time", current_timestamp())
 
     val query = parsed
-      .select("key", "event_time", "country", "temperature", "humidity")
+      .select(
+        "key",
+        "event_time",
+        "country",
+        "temperature",
+        "feels_like",
+        "humidity",
+        "pressure",
+        "wind_speed",
+        "wind_deg",
+        "cloudiness",
+        "rain_1h",
+        "snow_1h"
+      )
       .writeStream
       .format("console")
       .outputMode("append")
