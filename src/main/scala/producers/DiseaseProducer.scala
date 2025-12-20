@@ -4,93 +4,125 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import java.util.{Properties, Timer, TimerTask}
 import scala.io.Source
 import scala.util.Random
-
+import java.time.LocalDate
+import java.time.ZoneOffset
+/**
+ * Influenza Producer
+ * ----------------------------------
+ * This Kafka producer simulates real-time influenza disease data.
+ * It reads records from a CSV file, converts them into JSON format,
+ * and sends them periodically to a Kafka topic.
+ * This producer is used as a data source for Spark Structured Streaming.
+ */
 object DiseaseProducer {
+  // Path to influenza CSV file
+  val influenzaFile =
+    "data/raw/diseases/influenza/influenza.csv"
 
-  def cleanCell(cell: String): String = {
-    if (cell == null) return "0"
+  // Read CSV file and skip the header row
+  // All data rows are loaded into memory for random sampling
+  val influenzaData =
+    Source.fromFile(influenzaFile).getLines().drop(1).toList
 
-    val trimmed = cell.trim
-
-    if (trimmed.contains(";")) {
-      val parts = trimmed.split(";")
-      val firstNumber = parts.find(p => p.matches("[-]?[0-9.]+"))
-      firstNumber.getOrElse("0")
-    } else {
-      trimmed
-    }
-  }
-
-  def safeDouble(value: String): Double = {
-    try cleanCell(value).toDouble
-    catch { case _: Throwable => 0.0 }
-  }
-
-  def safeInt(value: String): Int = {
-    try cleanCell(value).toInt
-    catch { case _: Throwable => 0 }
-  }
-
-  val allergyFile = "data/raw/diseases/allergy/AirQuality.csv"
-  val heatStrokeFile = "data/raw/diseases/heat_stroke/Heat_Stroke.csv"
-  val influenzaFile = "data/raw/diseases/influenza/influenza_weekly.csv"
-
-  val allergyData = Source.fromFile(allergyFile).getLines().drop(1).toList
-  val heatStrokeData = Source.fromFile(heatStrokeFile).getLines().drop(1).toList
-  val influenzaData = Source.fromFile(influenzaFile).getLines().drop(1).toList
-
+  // Random generator to simulate different events over time
   val rnd = new Random()
 
-  def sendDiseaseEvent(producer: KafkaProducer[String, String]): Unit = {
+  /**
+   * Sends one influenza event to Kafka.
+   * A random row is selected from the CSV file to simulate streaming data.
+   */
+  def sendInfluenzaEvent(producer: KafkaProducer[String, String]): Unit = {
 
-    val picker = rnd.nextInt(3)
-    val (diseaseName, fileRows) =
-      if (picker == 0) ("allergy", allergyData)
-      else if (picker == 1) ("heat_stroke", heatStrokeData)
-      else ("influenza", influenzaData)
+    // If the CSV file is empty, do not send any events
+    if (influenzaData.isEmpty) return
 
-    if (fileRows.isEmpty) return
+    val row = influenzaData(rnd.nextInt(influenzaData.length))
+    val cols = row.split(",")
 
-    val row = fileRows(rnd.nextInt(fileRows.length))
+    // Ensure the row has the expected number of columns
+    if (cols.length < 4) return
 
-    val columns = row.split("[,;]").map(cleanCell)
 
-    val feature1 = safeDouble(columns.headOption.getOrElse("0"))
-    val feature2 = safeDouble(if (columns.length > 1) columns(1) else "0")
-    val feature3 = safeDouble(if (columns.length > 2) columns(2) else "0")
+    // Columns from CSV
 
+    // Column 0: country name
+    val country = cols(0).trim
+    // Column 2: date of the record
+    val dateStr = cols(2).trim
+
+    // Column 3: infection rate
+    val infectionRate =
+      // try-catch is used to avoid runtime errors from invalid values
+      try cols(3).toDouble
+      catch { case _: Throwable => 0.0 }
+
+
+    // Convert date -> event_time (ISO Timestamp)
+    // Using a unified timestamp format simplifies later data integration
+    val eventTime =
+      try {
+        LocalDate
+          .parse(dateStr)
+          .atStartOfDay()
+          .toInstant(ZoneOffset.UTC)
+          .toString
+      } catch {
+        case _: Throwable => return
+      }
+
+
+    // Create JSON message to send to Kafka
     val json =
       s"""
          {
-           "disease": "$diseaseName",
-           "feature1": $feature1,
-           "feature2": $feature2,
-           "feature3": $feature3,
-           "timestamp": ${System.currentTimeMillis()}
+           "disease": "influenza",
+           "country": "$country",
+           "infection_rate": $infectionRate,
+           "event_time": "$eventTime"
          }
        """.stripMargin
 
-    val rec = new ProducerRecord[String, String]("disease_topic", diseaseName, json)
-    producer.send(rec)
+    // Create Kafka record
+    // The country is used as the key
+    val record =
+      new ProducerRecord[String, String](
+        "disease_topic",
+        country,
+        json
+      )
+    // Send the record to Kafka
+    producer.send(record)
 
-    println("✔ Sent disease event: " + json)
+    // Console output for monitoring and debugging
+    println(s"🦠 Sent Influenza Event -> $country | rate=$infectionRate | time=$eventTime")
   }
 
   def main(args: Array[String]): Unit = {
 
-    println("🚑 DiseaseProducer started...")
-
+    // Kafka Producer configuration
+    println("🦠 Fetching LIVE Influenza data from CSV and streaming to Kafka...")
     val props = new Properties()
     props.put("bootstrap.servers", "localhost:9092")
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    props.put(
+      "key.serializer",
+      "org.apache.kafka.common.serialization.StringSerializer"
+    )
+    props.put(
+      "value.serializer",
+      "org.apache.kafka.common.serialization.StringSerializer"
+    )
 
+    // Create Kafka producer instance
     val producer = new KafkaProducer[String, String](props)
 
+
+    // Send event every 2 seconds
+    // This simulates continuous real-time data streaming
     val timer = new Timer()
     timer.schedule(
       new TimerTask {
-        override def run(): Unit = sendDiseaseEvent(producer)
+        override def run(): Unit =
+          sendInfluenzaEvent(producer)
       },
       0,
       2000
