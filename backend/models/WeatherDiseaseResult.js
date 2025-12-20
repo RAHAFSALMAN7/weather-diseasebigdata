@@ -1,25 +1,31 @@
 const mongoose = require("mongoose");
 
 const WeatherDiseaseResultSchema = new mongoose.Schema(
-  {
-    country: String,
-    season: String,
-    disease: String,
+    {
+        country: { type: String, required: true },
+        season: { type: String, required: true },
+        disease: { type: String, required: true },
 
-    infection_rate: Number,
-    event_date: Date,
 
-    avg_temperature: Number,
-    avg_humidity: Number,
+        avg_infection_rate: { type: Number, default: 0 },
+        avg_temperature: { type: Number, default: 0 },
+        avg_feels_like: { type: Number, default: 0 },
+        avg_humidity: { type: Number, default: 0 },
+        avg_wind_speed: { type: Number, default: 0 },
+        avg_pressure: { type: Number, default: 0 },
+        avg_cloudiness: { type: Number, default: 0 },
 
-    humidity_level: String,
-    weather_stress_index: Number
-  },
-  { timestamps: true }
+        humidity_level: { type: String, default: "" },
+        weather_stress_index: { type: Number, default: 0 },
+
+        ingested_at: { type: Date }
+    },
+    { timestamps: false }
 );
 
- module.exports = mongoose.model(
-  "WeatherDiseaseResult",
-  WeatherDiseaseResultSchema,
-  "weather_disease_results"
+
+module.exports = mongoose.model(
+    "WeatherDiseaseResult",
+    WeatherDiseaseResultSchema,
+    "seasonal_analysis"
 );
