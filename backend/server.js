@@ -6,34 +6,28 @@ const resultsRoutes = require("./routes/results");
 
 const app = express();
 
-// ======================
-// Middleware
-// ======================
+
 app.use(cors());
 app.use(express.json());
 
-// ======================
-// MongoDB Connection
-// ======================
-mongoose
-  .connect("mongodb://localhost:27017/weather_disease_db")
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => console.error("❌ MongoDB error:", err));
 
-// ======================
-// Routes
-// ======================
+const MONGO_URI = "mongodb://localhost:27017/weather_disease_db";
+
+mongoose
+    .connect(MONGO_URI)
+    .then(() => console.log(" MongoDB connected"))
+    .catch((err) => console.error(" MongoDB error:", err));
+
+
 app.use("/api/results", resultsRoutes);
 
-// Health check
-app.get("/", (req, res) => {
-  res.send("🌍 Weather–Disease Backend Running");
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", server: "Weather-Disease Backend" });
 });
 
-// ======================
-// Start Server
-// ======================
-const PORT = 5000;
-app.listen(PORT, () =>
-  console.log(`🚀 Backend running on http://localhost:${PORT}`)
-);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
+});
